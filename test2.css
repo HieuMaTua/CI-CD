@@ -1,0 +1,7 @@
+/* File: test2.css */
+.header {
+    width: 100% /* Thiếu dấu chấm phẩy */
+    margin: auto; /* Thuộc tính hợp lệ */
+    padding: 10 px; /* Đơn vị viết sai: "10 px" thay vì "10px" */
+    border-style: dashed solid; /* Thiếu giá trị cho border-style (cần 1 hoặc 4 giá trị) */
+    /* Thiếu dấu ngoặc đóng */
