@@ -13,25 +13,39 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Validate CSS using W3C Validator API
+    - name: Fetch main branch for comparison
+      run: git fetch origin main
+
+    - name: Validate only changed CSS files
       run: |
-        echo "🔍 Đang kiểm tra file CSS..."
-        for file in $(find . -name "*.css"); do
+        echo "🔍 Đang kiểm tra file CSS đã thay đổi..."
+
+        # Lấy các file CSS đã thêm hoặc sửa so với nhánh main
+        changed_files=$(git diff --name-only --diff-filter=AM origin/main | grep '\.css$' || true)
+
+        if [ -z "$changed_files" ]; then
+          echo "✅ Không có file CSS nào thay đổi. Bỏ qua kiểm tra."
+          exit 0
+        fi
+
+        for file in $changed_files; do
           echo "📄 Kiểm tra: $file"
-          result=$(curl -s -G --data-urlencode "text=$(cat $file)" --header "Content-Type: text/plain; charset=utf-8" "https://jigsaw.w3.org/css-validator/validator?output=soap12")
-          echo "Debug: Raw result length: $(echo -n "$result" | wc -c)" # Debug kích thước output
+          result=$(curl -s -G --data-urlencode "text=$(cat "$file")" \
+            --header "Content-Type: text/plain; charset=utf-8" \
+            "https://jigsaw.w3.org/css-validator/validator?output=soap12")
+
+          echo "Debug: Raw result length: $(echo -n "$result" | wc -c)"
+
           if echo "$result" | grep -q "<m:errorcount>0</m:errorcount>"; then
             echo "✅ $file: KHÔNG có lỗi"
           else
             echo "❌ $file: CÓ lỗi CSS"
             echo "📋 Chi tiết lỗi từ W3C Validator:"
-            # Trích xuất số lỗi
             error_count=$(echo "$result" | grep "<m:errorcount>" | sed 's/.*<m:errorcount>\(.*\)<\/m:errorcount>.*/\1/')
             echo "Tổng số lỗi: $error_count"
-            # Trích xuất từng lỗi với debug
-            errors=$(echo "$result" | grep -A 15 "<m:error>") # Tăng context để lấy đủ thông tin
+            errors=$(echo "$result" | grep -A 15 "<m:error>")
             if [ -n "$errors" ]; then
-              echo "Debug: Raw errors (first 1000 chars): $(echo "$errors" | head -c 1000)" # Hiển thị một phần để tránh quá tải
+              echo "Debug: Raw errors (first 1000 chars): $(echo "$errors" | head -c 1000)"
               echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
               {
                 for (i=1; i<=NF; i++) {
@@ -46,13 +60,13 @@ jobs:
                   if (skipped) print "    Đoạn code lỗi: " skipped;
                   print "    Thông báo: " message;
                 } else {
-                  echo "Debug: Failed to parse error entry"
+                  print "⚠️ Không thể phân tích lỗi chi tiết."
                 }
-              }' # Đảm bảo dấu ngoặc đóng ở đây
+              }'
             else
               echo "Debug: No error details found in result"
             fi
-            exit 1 # Làm pipeline fail nếu có lỗi
+            exit 1
           fi
         done
       shell: /usr/bin/bash -e {0}
