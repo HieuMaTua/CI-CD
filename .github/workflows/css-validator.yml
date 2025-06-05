@@ -18,13 +18,41 @@ jobs:
         echo "🔍 Đang kiểm tra file CSS..."
         for file in $(find . -name "*.css"); do
           echo "📄 Kiểm tra: $file"
-          result=$(curl -s -G --data-urlencode "text=$(cat $file)" "https://jigsaw.w3.org/css-validator/validator?output=soap12")
+          result=$(curl -s -G --data-urlencode "text=$(cat $file)" --header "Content-Type: text/plain; charset=utf-8" "https://jigsaw.w3.org/css-validator/validator?output=soap12")
+          echo "Debug: Raw result length: $(echo -n "$result" | wc -c)" # Debug kích thước output
           if echo "$result" | grep -q "<m:errorcount>0</m:errorcount>"; then
             echo "✅ $file: KHÔNG có lỗi"
           else
             echo "❌ $file: CÓ lỗi CSS"
             echo "📋 Chi tiết lỗi từ W3C Validator:"
-            echo "$result" # In toàn bộ output để debug
+            # Trích xuất số lỗi
+            error_count=$(echo "$result" | grep "<m:errorcount>" | sed 's/.*<m:errorcount>\(.*\)<\/m:errorcount>.*/\1/')
+            echo "Tổng số lỗi: $error_count"
+            # Trích xuất từng lỗi với debug
+            errors=$(echo "$result" | grep -A 15 "<m:error>") # Tăng context để lấy đủ thông tin
+            if [ -n "$errors" ]; then
+              echo "Debug: Raw errors (first 1000 chars): $(echo "$errors" | head -c 1000)" # Hiển thị một phần để tránh quá tải
+              echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
+              {
+                for (i=1; i<=NF; i++) {
+                  if ($i ~ /<m:line>/) line=$(i+1);
+                  if ($i ~ /<m:context>/) context=$(i+1);
+                  if ($i ~ /<m:skippedstring>/) skipped=$(i+1);
+                  if ($i ~ /<m:message>/) message=$(i+1);
+                }
+                if (line && context && message) {
+                  print "  - Dòng: " line;
+                  print "    Khối: " context;
+                  if (skipped) print "    Đoạn code lỗi: " skipped;
+                  print "    Thông báo: " message;
+                } else {
+                  echo "Debug: Failed to parse error entry"
+                }
+              }'
+            else
+              echo "Debug: No error details found in result"
+            fi
             exit 1 # Làm pipeline fail nếu có lỗi
           fi
         done
+      shell: /usr/bin/bash -e {0}
