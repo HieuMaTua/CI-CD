@@ -1,0 +1,6 @@
+/* File: styles.css */
+body {
+    background-color: blue; /* Thuộc tính hợp lệ */
+    font-size: 16px /* Thiếu dấu chấm phẩy */
+    color: { red } /* Giá trị sai định dạng, cú pháp không hợp lệ */
+    /* Thiếu dấu ngoặc đóng */
