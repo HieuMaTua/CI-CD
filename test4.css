@@ -1,0 +1,13 @@
+body {
+    font-size: 16px
+    color: blue;
+  }
+  
+  h1 {
+    font-weightt: bold; /* lỗi: sai thuộc tính */
+  }
+  
+  p {
+    margin: 10pixels; /* lỗi: sai đơn vị */
+  }
+  
