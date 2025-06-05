@@ -18,7 +18,13 @@ jobs:
         echo "🔍 Đang kiểm tra file CSS..."
         for file in $(find . -name "*.css"); do
           echo "📄 Kiểm tra: $file"
-          curl -s -G --data-urlencode "text=$(cat $file)" "https://jigsaw.w3.org/css-validator/validator?output=soap12" | grep -q "<m:errorcount>0</m:errorcount>" \
-            && echo "✅ $file: KHÔNG có lỗi" \
-            || echo "❌ $file: CÓ lỗi CSS"
+          result=$(curl -s -G --data-urlencode "text=$(cat $file)" "https://jigsaw.w3.org/css-validator/validator?output=soap12")
+          if echo "$result" | grep -q "<m:errorcount>0</m:errorcount>"; then
+            echo "✅ $file: KHÔNG có lỗi"
+          else
+            echo "❌ $file: CÓ lỗi CSS"
+            echo "📋 Chi tiết lỗi từ W3C Validator:"
+            echo "$result" # In toàn bộ output để debug
+            exit 1 # Làm pipeline fail nếu có lỗi
+          fi
         done
