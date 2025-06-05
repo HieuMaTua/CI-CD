@@ -29,9 +29,9 @@ jobs:
             error_count=$(echo "$result" | grep "<m:errorcount>" | sed 's/.*<m:errorcount>\(.*\)<\/m:errorcount>.*/\1/')
             echo "Tổng số lỗi: $error_count"
             # Trích xuất từng lỗi với debug
-            errors=$(echo "$result" | grep -A 10 "<m:error>")
+            errors=$(echo "$result" | grep -A 15 "<m:error>") # Tăng context để lấy đủ thông tin
             if [ -n "$errors" ]; then
-              echo "Debug: Raw errors: $errors" # Debug toàn bộ đoạn lỗi
+              echo "Debug: Raw errors (first 1000 chars): $(echo "$errors" | head -c 1000)" # Hiển thị một phần để tránh quá tải
               echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
               {
                 for (i=1; i<=NF; i++) {
@@ -48,7 +48,7 @@ jobs:
                 } else {
                   echo "Debug: Failed to parse error entry"
                 }
-              }'
+              }' # Đảm bảo dấu ngoặc đóng ở đây
             else
               echo "Debug: No error details found in result"
             fi
