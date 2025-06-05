@@ -56,3 +56,4 @@ jobs:
           fi
         done
       shell: /usr/bin/bash -e {0}
+      shell: /usr/bin/bash -e {0}
