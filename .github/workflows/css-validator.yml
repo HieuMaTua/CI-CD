@@ -3,7 +3,7 @@ name: CSS Validator
 on:
   push:
     paths:
-      - '**.css'
+      - '**.css' # Chỉ kích hoạt khi có file .css thay đổi
 
 jobs:
   validate-css:
@@ -13,18 +13,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Fetch main branch for comparison
+    - name: Fetch main branch to compare changes
       run: git fetch origin main
 
-    - name: Validate only changed CSS files
+    - name: Validate changed CSS files using W3C Validator
       run: |
-        echo "🔍 Đang kiểm tra file CSS đã thay đổi..."
+        echo "🔍 Đang kiểm tra các file CSS đã thay đổi..."
 
-        # Lấy các file CSS đã thêm hoặc sửa so với nhánh main
+        # Lấy các file CSS mới thêm hoặc sửa đổi
         changed_files=$(git diff --name-only --diff-filter=AM origin/main | grep '\.css$' || true)
 
         if [ -z "$changed_files" ]; then
-          echo "✅ Không có file CSS nào thay đổi. Bỏ qua kiểm tra."
+          echo "✅ Không có file CSS thay đổi. Bỏ qua kiểm tra."
           exit 0
         fi
 
@@ -34,39 +34,28 @@ jobs:
             --header "Content-Type: text/plain; charset=utf-8" \
             "https://jigsaw.w3.org/css-validator/validator?output=soap12")
 
-          echo "Debug: Raw result length: $(echo -n "$result" | wc -c)"
-
           if echo "$result" | grep -q "<m:errorcount>0</m:errorcount>"; then
             echo "✅ $file: KHÔNG có lỗi"
           else
             echo "❌ $file: CÓ lỗi CSS"
-            echo "📋 Chi tiết lỗi từ W3C Validator:"
             error_count=$(echo "$result" | grep "<m:errorcount>" | sed 's/.*<m:errorcount>\(.*\)<\/m:errorcount>.*/\1/')
             echo "Tổng số lỗi: $error_count"
             errors=$(echo "$result" | grep -A 15 "<m:error>")
-            if [ -n "$errors" ]; then
-              echo "Debug: Raw errors (first 1000 chars): $(echo "$errors" | head -c 1000)"
-              echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
-              {
-                for (i=1; i<=NF; i++) {
-                  if ($i ~ /<m:line>/) line=$(i+1);
-                  if ($i ~ /<m:context>/) context=$(i+1);
-                  if ($i ~ /<m:skippedstring>/) skipped=$(i+1);
-                  if ($i ~ /<m:message>/) message=$(i+1);
-                }
-                if (line && context && message) {
-                  print "  - Dòng: " line;
-                  print "    Khối: " context;
-                  if (skipped) print "    Đoạn code lỗi: " skipped;
-                  print "    Thông báo: " message;
-                } else {
-                  print "⚠️ Không thể phân tích lỗi chi tiết."
-                }
-              }'
-            else
-              echo "Debug: No error details found in result"
-            fi
+            echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
+            {
+              for (i=1; i<=NF; i++) {
+                if ($i ~ /<m:line>/) line=$(i+1);
+                if ($i ~ /<m:context>/) context=$(i+1);
+                if ($i ~ /<m:skippedstring>/) skipped=$(i+1);
+                if ($i ~ /<m:message>/) message=$(i+1);
+              }
+              if (line && context && message) {
+                print "  - Dòng: " line;
+                print "    Khối: " context;
+                if (skipped) print "    Đoạn code lỗi: " skipped;
+                print "    Thông báo: " message;
+              }
+            }'
             exit 1
           fi
         done
-      shell: /usr/bin/bash -e {0}
