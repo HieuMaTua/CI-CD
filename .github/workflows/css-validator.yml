@@ -1,0 +1,24 @@
+name: CSS Validator
+
+on:
+  push:
+    paths:
+      - '**.css'
+
+jobs:
+  validate-css:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Validate CSS using W3C Validator API
+      run: |
+        echo "🔍 Đang kiểm tra file CSS..."
+        for file in $(find . -name "*.css"); do
+          echo "📄 Kiểm tra: $file"
+          curl -s -G --data-urlencode "text=$(cat $file)" "https://jigsaw.w3.org/css-validator/validator?output=soap12" | grep -q "<m:errorcount>0</m:errorcount>" \
+            && echo "✅ $file: KHÔNG có lỗi" \
+            || echo "❌ $file: CÓ lỗi CSS"
+        done
