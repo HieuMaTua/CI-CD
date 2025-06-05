@@ -3,7 +3,7 @@ name: CSS Validator
 on:
   push:
     paths:
-      - '**.css' # Chỉ kích hoạt khi có file .css thay đổi
+      - '**.css'
 
 jobs:
   validate-css:
@@ -13,49 +13,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Fetch main branch to compare changes
-      run: git fetch origin main
-
-    - name: Validate changed CSS files using W3C Validator
+    - name: Validate CSS using W3C Validator API
       run: |
-        echo "🔍 Đang kiểm tra các file CSS đã thay đổi..."
-
-        # Lấy các file CSS mới thêm hoặc sửa đổi
-        changed_files=$(git diff --name-only --diff-filter=AM origin/main | grep '\.css$' || true)
-
-        if [ -z "$changed_files" ]; then
-          echo "✅ Không có file CSS thay đổi. Bỏ qua kiểm tra."
-          exit 0
-        fi
-
-        for file in $changed_files; do
+        echo "🔍 Đang kiểm tra file CSS..."
+        for file in $(find . -name "*.css"); do
           echo "📄 Kiểm tra: $file"
-          result=$(curl -s -G --data-urlencode "text=$(cat "$file")" \
-            --header "Content-Type: text/plain; charset=utf-8" \
-            "https://jigsaw.w3.org/css-validator/validator?output=soap12")
-
+          result=$(curl -s -G --data-urlencode "text=$(cat $file)" "https://jigsaw.w3.org/css-validator/validator?output=soap12")
           if echo "$result" | grep -q "<m:errorcount>0</m:errorcount>"; then
             echo "✅ $file: KHÔNG có lỗi"
           else
             echo "❌ $file: CÓ lỗi CSS"
-            error_count=$(echo "$result" | grep "<m:errorcount>" | sed 's/.*<m:errorcount>\(.*\)<\/m:errorcount>.*/\1/')
-            echo "Tổng số lỗi: $error_count"
-            errors=$(echo "$result" | grep -A 15 "<m:error>")
-            echo "$errors" | awk 'BEGIN { RS="</m:error>"; FS="<m:line>|</m:line>|<m:context>|</m:context>|<m:skippedstring>|</m:skippedstring>|<m:message>|</m:message>" }
-            {
-              for (i=1; i<=NF; i++) {
-                if ($i ~ /<m:line>/) line=$(i+1);
-                if ($i ~ /<m:context>/) context=$(i+1);
-                if ($i ~ /<m:skippedstring>/) skipped=$(i+1);
-                if ($i ~ /<m:message>/) message=$(i+1);
-              }
-              if (line && context && message) {
-                print "  - Dòng: " line;
-                print "    Khối: " context;
-                if (skipped) print "    Đoạn code lỗi: " skipped;
-                print "    Thông báo: " message;
-              }
-            }'
-            exit 1
+            echo "📋 Chi tiết lỗi từ W3C Validator:"
+            echo "$result" # In toàn bộ output để debug
+            exit 1 # Làm pipeline fail nếu có lỗi
           fi
         done
